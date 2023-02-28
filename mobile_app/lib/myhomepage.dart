@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -5,6 +7,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:mobile_app/camera_page.dart';
 import 'package:camera/camera.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:http/http.dart' as http;
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key});
@@ -18,8 +22,36 @@ class _MyHomePageState extends State<MyHomePage> {
   late double long = 0;
   late LatLng position = LatLng(lat, long);
   late GoogleMapController mapController;
-
   late LatLng _center = LatLng(-32.888153965240924, -68.86453057731511);
+  late Future<LoginData> futureloginData;
+
+  Future<LoginData> logintw() async {
+    final response =
+        await http.get(Uri.parse('http://190.15.198.27:5000/tw/auth'));
+
+    if (response.statusCode == 200) {
+      // If the server did return a 200 OK response,
+      // then parse the JSON.
+      return LoginData.fromJson(jsonDecode(response.body));
+    } else {
+      // If the server did not return a 200 OK response,
+      // then throw an exception.
+      throw Exception('Failed to load album');
+    }
+  }
+
+  Future<void> _launchUrl() async {
+    futureloginData = logintw();
+    Uri urlAuth;
+    futureloginData.then((value) {
+      setState(() async {
+        urlAuth = Uri.parse(value.url);
+        if (!await launchUrl(urlAuth)) {
+          throw Exception('Could not launch $urlAuth');
+        }
+      });
+    });
+  }
 
   void _onMapCreated(GoogleMapController controller) {
     mapController = controller;
@@ -139,7 +171,33 @@ class _MyHomePageState extends State<MyHomePage> {
                     )),
               ],
             ),
+            Container(
+                alignment: Alignment.center,
+                padding: const EdgeInsets.all(16),
+                child: FloatingActionButton(
+                  child: Icon(Icons.login),
+                  backgroundColor: Color.fromARGB(255, 26, 139, 214),
+                  foregroundColor: Colors.white,
+                  onPressed: _launchUrl,
+                )),
           ],
         ));
+  }
+}
+
+class LoginData {
+  final String message;
+  final String url;
+
+  const LoginData({
+    required this.message,
+    required this.url,
+  });
+
+  factory LoginData.fromJson(Map<String, dynamic> json) {
+    return LoginData(
+      message: json['message'],
+      url: json['url'],
+    );
   }
 }
