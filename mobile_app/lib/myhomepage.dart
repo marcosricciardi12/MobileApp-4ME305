@@ -9,6 +9,7 @@ import 'package:mobile_app/camera_page.dart';
 import 'package:camera/camera.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
+import 'pictures_page.dart';
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key});
@@ -175,11 +176,21 @@ class _MyHomePageState extends State<MyHomePage> {
                 alignment: Alignment.center,
                 padding: const EdgeInsets.all(16),
                 child: FloatingActionButton(
-                  child: Icon(Icons.login),
+                  child: Icon(Icons.photo_library),
                   backgroundColor: Color.fromARGB(255, 26, 139, 214),
                   foregroundColor: Colors.white,
-                  onPressed: _launchUrl,
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const PicturesPage()),
+                    );
+                  },
                 )),
+            const Text(
+              "View saved pictures",
+              textAlign: TextAlign.center,
+            ),
           ],
         ));
   }

@@ -3,6 +3,13 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:geolocator/geolocator.dart';
 import 'package:dio/dio.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'utility.dart';
+import 'DBHelper.dart';
+import 'Photo.dart';
+import 'dart:async';
+import 'pictures_page.dart';
+import 'myhomepage.dart';
 
 class PreviewPage extends StatefulWidget {
   const PreviewPage({Key? key, required this.picture}) : super(key: key);
@@ -17,7 +24,39 @@ class _PreviewPageState extends State<PreviewPage> {
   late double lat = 0;
   late bool flag = true;
   late double long = 0;
+  var dbHelper = DBHelper();
+
+  late TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
   String position = "Latitud: 0  Longitud: 0";
+
+  saveImage() {
+    widget.picture.readAsBytes().then((value) {
+      setState(() {
+        String imgString = Utility.base64String(value);
+        Photo photo = Photo(
+            id: 0,
+            photoName: imgString,
+            lat: lat,
+            long: long,
+            date: DateTime.now().toString(),
+            userNotes: _controller.text);
+        print(dbHelper.save(photo).toString());
+      });
+    });
+  }
 
   Future<Position> _getCurrentLocation() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -74,7 +113,9 @@ class _PreviewPageState extends State<PreviewPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Preview Page')),
-      body: Center(
+      resizeToAvoidBottomInset: false,
+      body: SingleChildScrollView(
+        reverse: true,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -97,16 +138,86 @@ class _PreviewPageState extends State<PreviewPage> {
                       widget.picture.path,
                       filename: widget.picture.name,
                     );
+                    final multiPartText = await MultipartFile.fromString(
+                        "Location: Lat=>$lat  Lon=>$long");
                     FormData formData = FormData.fromMap({
                       "image": multiPartFile,
-                      "location": "que te calienta donde estoy",
+                      "location": multiPartText,
                     });
                     final response = await dio.post(
                       "http://190.15.198.27:5000/tw/upload",
                       data: formData,
                     );
+                    print(response.data['url'].toString());
+                    var urlAuth = Uri.parse(response.data['url'].toString());
+                    if (!await launchUrl(urlAuth)) {
+                      throw Exception('Could not launch $urlAuth');
+                    }
                   },
-                ))
+                )),
+            Container(
+              padding: const EdgeInsets.all(16),
+              child: TextField(
+                obscureText: false,
+                decoration: InputDecoration(
+                  prefixIcon: Icon(Icons.note_alt_outlined),
+                  border: OutlineInputBorder(),
+                  labelText: 'User Note',
+                ),
+                controller: _controller,
+                onSubmitted: (String value) async {
+                  await showDialog<void>(
+                    context: context,
+                    builder: (BuildContext context) {
+                      return AlertDialog(
+                        title: const Text('Thanks!'),
+                        content: Text(
+                            'You typed "$value", which has length ${value.characters.length}.'),
+                        actions: <Widget>[
+                          TextButton(
+                            onPressed: () {
+                              Navigator.pop(context);
+                            },
+                            child: const Text('OK'),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+            Container(
+                alignment: Alignment.centerRight,
+                padding: const EdgeInsets.all(16),
+                child: FloatingActionButton(
+                  child: Icon(Icons.save_as_rounded),
+                  backgroundColor: Color.fromARGB(255, 26, 139, 214),
+                  foregroundColor: Colors.white,
+                  onPressed: () async {
+                    saveImage();
+                    await showDialog<void>(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return AlertDialog(
+                          title: const Text('Thanks!'),
+                          content: Text('Your image was saved!'),
+                          actions: <Widget>[
+                            TextButton(
+                              onPressed: () {
+                                Navigator.pop(context);
+                              },
+                              child: const Text('OK'),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  },
+                )),
+            Padding(
+                padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(context).viewInsets.bottom))
           ],
         ),
       ),
